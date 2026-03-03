@@ -5,7 +5,9 @@
 
 \documentclass{article}
 \usepackage{graphicx} % Required for inserting images
-\title{Fase 0}
+\usepackage{underscore}
+\usepackage{enumitem}
+\title{Fase 0 - ICE-messAGE}
 \author{Sergio Gafo Sabín \and Ander Íñiguez Bustillo \and Adrian Isábal Martín}
 
 \begin{document}
@@ -144,5 +146,44 @@ La estructura de ficheros del proyecto está organizada para mantener claridad y
  \end{center}
 
 \section{Protocolo de comunicaciones}
+    \subsection{Ejemplo de diálogo completo}
     
+    El flujo de una posible interacción entre los clientes A y B y el tracker T, el servidor STUN S y el servidor TURN R actuando como intermediarios:
+
+    \subsubsection{Parte fija}
+
+    \begin{enumerate}
+        \item A y B envían una petición a S para descubrir su IP:puerto público y topología de red (para saber de antemano si las conexiones P2P son posibles)
+        \item A y B se conectan a T mediante WebSockets seguros (WSS) y envía un mensaje de registro que incluye: nombre de usuario, dirección pública descubierta, tipo de NAT y clave pública de cifrado.
+        \item Cliente A solicita iniciar conversación con B enviando un mensaje call_request al tracker.
+        \item El tracker reenvía la petición a Cliente B. Este acepta y responde con un call_response (accepted=true) a través del tracker, que llega a A.
+    \end{enumerate}
+    
+    \textbf{Conexión P2P:}
+    \begin{enumerate}[label=\arabic*., start=6]
+        \item A y B realizan hole punching sincronizados mediante el servidor STUN.
+        \item En caso exitoso, negocian DTLS y establecen un stream SCTP por el que podrán enviarse los mensajes.
+    \end{enumerate}
+
+    \textbf{Conexión por relay:}
+    \begin{enumerate}[label=\arabic*., start=6]
+        \item Hole punching falla o se descarta si las topologías de red notificadas al tracker no lo permiten
+        \item A y B envian allocate a R para obtener direcciones relay que se notifican mutuamente a través de T
+        \item A y B establecen conexión TCP con R, negocian TLS y pueden intercambiar mensajes cifrados hasta que cierren la conexión
+    \end{enumerate}
+
+    \subsection{Formato de los mensajes}
+    \begin{itemize}
+        \item Comunicaciones con STUN: RFC 8489
+        \item Comunicaciones con TURN: RFC 8656
+        \item Envío de datos P2P: RFC 8832 (Data Channel Establishment)
+        \item Comunicaciones por tracker: Protocolo propio
+            \begin{itemize}
+                \item Tipo de mensaje: 1 byte (0x01 = register, 0x02 = call_request, 0x03 = ice_candidate, etc.)
+                \item Flags (1 byte): indicadores de control
+                \item ID de transacción (4-8 bytes): para correlacionar respuestas
+                \item Payload (datos de usuario (clave pública, puerto, etc))
+            \end{itemize}
+    \end{itemize}
 \end{document}
+    
